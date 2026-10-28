@@ -74,16 +74,49 @@ function validateMasterPassword(password) {
 async function handleSignup() {
     // Validate inputs, generate a random salt and master key, then store an encrypted verifier and signup data.
     // Works with generateKey() and encryptVerifier()
+    const array1 = new Uint16Array(10)
+    salt = self.crypto.getRandomValues(array1)
+    verifierIV = self.crypto.getRandomValues(array1)
+    chrome.storage.local.set(salt)
+    chrome.storage.local.set(verifierIV)
+
+    masterkey = await generateKey(masterPassword, salt)
+    encrypted_verifier = await encryptVerifier(masterkey, verifierIV)
+
+    chrome.storage.local.set(username)
+    chrome.storage.local.set(encrypted_verifier)
 }
 
 
 async function generateKey(masterPassword, salt) {
     // Use PBKDF2 with SHA-256, the provided salt, and 100,000 iterations to derive a 256-bit AES-GCM key.
+    account_password = await window.crypto.subtle.importKey(
+        format, 
+        keyData=masterPassword, 
+        algorithm="PBKDF2", 
+        extractable=True, 
+        keyUsages=[deriveKey],
+    )
+    
+    masterkey = await window.crypto.subtle.deriveKey(
+        {
+            name: "PBKDF2",
+            salt: salt,
+            iterationCount: 100000,
+            prf: "id-hmacWithSHA256",
+        },
+        account_password, 
+        { name: "AES-GCM", length: 256 },
+        True, 
+        keyUsages,
+    );
+    
+    return masterkey
 }
-
 
 async function encryptVerifier(masterKey, verifierIV) {
     // AES-GCM encrypt verifierPlaintext with masterKey and verifierIV, then return the ciphertext as an array.
+    return window.crypto.subtle.encrypt({ name: "AES-GCM", verifierIV }, key=masterKey, data=verifierPlaintext)
 }
 
 
